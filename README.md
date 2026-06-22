@@ -1,179 +1,118 @@
-# Excel Field Mapper & Transformer — تطبيق سطح المكتب
+# Excel Field Mapper & Transformer
 
-تطبيق سطح مكتب بواجهة رسومية (GUI) لتحويل وربط البيانات بين ملفات Excel، مبني باستخدام Python + Tkinter + openpyxl.
-
----
-
-## المتطلبات
-
-- Python 3.10 أو أحدث
-- حزمة openpyxl (تُثبّت تلقائياً مع الأمر أدناه)
-
-```
-pip install openpyxl
-```
+A desktop GUI application for transforming and mapping data between Excel files. Built with Python + Tkinter + openpyxl.
 
 ---
 
-## كيفية التشغيل
+## Features
+
+- **Intuitive 4-tab interface** — Load, Map, Export, and Statistics
+- **13 transformation operations** — exact copy, constant, split, concat, condition, lookup, regex, formula, date_format, case, strip, skip, count
+- **Live preview** — see transformation results for the first 3 rows as you configure
+- **Drag & drop** Excel files directly onto the window
+- **Search/filter** target columns in the mapping tab
+- **Column statistics** — view fill rate, unique count, and inferred type per column
+- **Save/load mapping configurations** as JSON files
+- **Keyboard shortcuts**: Ctrl+O (open source), Ctrl+S (save mapping)
+
+---
+
+## Requirements
+
+- Python 3.10+
+- `openpyxl` (installed automatically with the command below)
+- `tkinterdnd2` (for drag-and-drop support)
+
+```
+pip install openpyxl tkinterdnd2
+```
+
+---
+
+## How to Run
 
 ```
 python app.py
----
+```
 
-## نظرة عامة على سير العمل
-
-يتكون التطبيق من **3 تبويبات (Tabs)** رئيسية:
-
-### 1. تبويب تحميل الملفات (Load Files)
-- **اختيار ملف المصدر (Source)**: الملف الذي يحتوي على البيانات الأصلية التي تريد التحويل منها.
-- **اختيار ملف الهدف (Target)**: الملف الذي يحدد هيكل الإخراج المطلوب (أسماء الأعمدة التي تريد توليدها).
-- عند تحميل ملف، تظهر معاينة لأول 5 صفوف.
-- إذا كان الملف يحتوي على أكثر من ورقة (Sheet)، يمكنك اختيار الورقة المطلوبة.
-
-### 2. تبويب الربط والتحويل (Map & Transform)
-- لكل عمود من أعمدة ملف الهدف، يتم عرض **بطاقة تكوين** منفصلة.
-- في كل بطاقة:
-  1. تختار **عملية التحويل** المناسبة (من 13 عملية)
-  2. تضبط المعاملات (البارامترات) الخاصة بكل عملية
-  3. تظهر **معاينة حية** لأول 3 صفوف بعد التحويل
-- يمكنك **حفظ** تكوين الربط كملف JSON واسترجاعه لاحقاً.
-- زر **Run Transformation** لتنفيذ التحويل والانتقال إلى تبويب التصدير.
-
-### 3. تبويب التصدير (Export)
-- جدول كامل يعرض جميع البيانات بعد التحويل.
-- الخلايا التي حدث فيها خطأ تُظلَّل باللون الأحمر.
-- ملخص: عدد الصفوف، عدد الأعمدة، عدد الأخطاء.
-- زر **Download .xlsx** لتنزيل النتيجة كملف Excel.
+Or use the pre-built executable: `dist/ExcelMapper.exe`
 
 ---
 
-## شرح عمليات التحويل الـ 13
+## Workflow
 
-### 1. exact (نسخ مطابق)
-ينسخ قيمة العمود المصدر كما هي دون أي تعديل.
-- **المعاملات**: `source_col` — اسم العمود المصدر
-- **مثال**: إذا كان عمود المصدر "الاسم" يحتوي "أحمد"، فالناتج سيكون "أحمد"
+### 1. Load Files tab
+- Select a **source** Excel file (the data you want to transform from)
+- Select a **target** Excel file (defines the output column structure)
+- Preview shows the first 5 rows
+- Tabs with multiple sheets are supported
 
-### 2. constant (قيمة ثابتة)
-يُخرج القيمة نفسها لكل الصفوف بغض النظر عن البيانات.
-- **المعاملات**: `value` — القيمة الثابتة المراد إخراجها
-- **مثال**: لتعيين عمود "الحالة" كله إلى "نشط"
+### 2. Map & Transform tab
+- Each target column gets its own **configuration card**
+- For each card:
+  1. Choose a **transformation operation** (from 13 available)
+  2. Adjust operation-specific parameters
+  3. See a **live preview** of the first 3 rows
+- Use the **search box** to quickly filter cards by target column name
+- **Save/Load** your full mapping configuration as JSON
+- Click **Run Transformation** to execute and switch to the Export tab
 
-### 3. split (تقسيم)
-يقسم قيمة العمود المصدر حسب محدد معين (delimiter) ويأخذ الجزء ذا الرقم المحدد.
-- **المعاملات**: `source_col` (العمود), `delimiter` (المحدد), `index` (الرقم بدءاً من 0)
-- **مثال**: "أحمد محمد" إذا اخترت المحدد مسافة والرقم 0 → "أحمد"، الرقم 1 → "محمد"
+### 3. Export tab
+- Full result table with all transformed rows
+- Error cells highlighted in red
+- Summary: row count, column count, error count
+- **Download .xlsx** button to save the result
 
-### 4. concat (دمج)
-يدمج قيماً من عدة أعمدة مصدر في عمود واحد، باستخدام فاصل محدد.
-- **المعاملات**: `source_cols` (قائمة الأعمدة), `separator` (الفاصل)
-- **مثال**: دمج "الاسم الأول" و"اسم العائلة" بفاصل مسافة → "أحمد علي"
-
-### 5. condition (شرط)
-سلسلة من القواعد الشرطية (If/elif/else). تُقيَّم القواعد بالترتيب، وعند أول تطابق يتم إخراج القيمة المقابلة.
-- **المعاملات**:
-  - `rules` — قائمة من القواعد، كل قاعدة تحتوي على:
-    - `source_col` — العمود المصدر
-    - `operator` — عامل المقارنة
-    - `value` — القيمة للمقارنة
-    - `output` — القيمة المُخرجة عند تحقق الشرط
-  - `default` — قيمة افتراضية إذا لم يتحقق أي شرط
-- **عوامل المقارنة المدعومة**:
-  - `==` — يساوي
-  - `!=` — لا يساوي
-  - `contains` — يحتوي على النص
-  - `starts_with` — يبدأ بـ
-  - `ends_with` — ينتهي بـ
-  - `>` — أكبر من (رقمياً)
-  - `<` — أصغر من (رقمياً)
-  - `>=` — أكبر من أو يساوي
-  - `<=` — أصغر من أو يساوي
-  - `is_empty` — فارغ (نص فارغ)
-- **مثال**: إذا كان الراتب أكبر من 90000 → "كبير"، أكبر من 70000 → "متوسط"، وإلا → "مبتدئ"
-
-### 6. lookup (قاموس)
-يستخدم قاموساً (خريطة) لتحويل القيم من القديم إلى الجديد. إذا لم توجد القيمة في القاموس، تبقى كما هي.
-- **المعاملات**: `source_col` (العمود), `mapping` (قاموس من القيم القديمة → الجديدة)
-- **مثال**: "نشط" → "Active"، "خامل" → "Inactive"
-
-### 7. regex (تعبير منتظم)
-يستخرج جزءاً من النص باستخدام نمط Regex ومجموعة (group).
-- **المعاملات**: `source_col` (العمود), `pattern` (النمط), `group` (رقم المجموعة)
-- **مثال**: النمط `(\w+)@` على البريد الإلكتروني "ahmed@example.com" يستخرج "ahmed"
-
-### 8. formula (صيغة Python)
-يقيّم تعبير Python مع إتاحة الوصول إلى جميع أعمدة الصف من خلال قاموس `row`.
-- **المعاملات**: `expression` — تعبير Python (مع دوال آمنة فقط)
-- **الدوال المسموح بها**: `abs`, `int`, `float`, `str`, `len`, `min`, `max`, `round`, `sum`
-- **مثال**: `int(row['Salary']) * 1.1` — يزيد الراتب بنسبة 10%
-
-### 9. date_format (تنسيق تاريخ)
-يحلل تاريخاً من تنسيق معين ويعيد تنسيقه إلى تنسيق آخر.
-- **المعاملات**: `source_col` (العمود), `input_format` (تنسيق الإدخال), `output_format` (تنسيق الإخراج)
-- **تنسيقات strftime**: `%Y` (سنة), `%m` (شهر), `%d` (يوم), إلخ.
-- **مثال**: من `2023-01-15` (باستخدام `%Y-%m-%d`) إلى `15/01/2023` (باستخدام `%d/%m/%Y`)
-
-### 10. case (حالة الأحرف)
-يحول النص إلى أحرف كبيرة (upper)، صغيرة (lower)، أو عنوان (title).
-- **المعاملات**: `source_col` (العمود), `case_type` (نوع التحويل: `upper` / `lower` / `title`)
-- **مثال**: "أحمد علي" مع `upper` → "أحمد علي" (لأن العربية ليس فيها upper/lower كالإنجليزية)، أما للإنجليزية: "ahmed ali" → "Ahmed Ali" (title)
-
-### 11. strip (إزالة الفراغات)
-يزيل المسافات البيضاء من بداية ونهاية النص.
-- **المعاملات**: `source_col` (العمود)
-- **مثال**: `"  hello  "` → `"hello"`
-
-### 12. skip (تخطي)
-يترك العمود فارغاً (قيمة نص فارغ) لجميع الصفوف. يُستخدم للأعمدة الهدف التي لا تريد ملؤها.
-- **المعاملات**: لا يوجد
-- **مثال**: عمود "ملاحظات" سيكون فارغاً في النتيجة
-
-### 13. count (عد) — عملية جديدة
-يعدّ، لكل صف، عدد الأعمدة المحددة التي تحتوي على بيانات غير فارغة.
-- **المعاملات**: `source_cols` — قائمة بالأعمدة المراد فحصها (اختيار متعدد)
-- **الاستخدامات**:
-  - عدد الأطفال لكل عائلة (اختر child1, child2, child3 — سيُحسب عدد الأعمدة غير الفارغة)
-  - عدد الحقول المعبأة في استبيان
-  - عدد العناصر في مجموعات متكررة
-- **مثال**: إذا كان العمود الأول = "أحمد"، الثاني = "محمد"، الثالث = "" → الناتج `"2"`
+### 4. Statistics tab
+- Per-column analysis for both source and target data:
+  - Non-empty count and fill percentage
+  - Unique value count
+  - Inferred data type (Numeric / Text / Empty)
+- Refreshes automatically when data is loaded
 
 ---
 
-## حفظ وتحميل تكوين الربط (Mapping)
+## Transformation Operations
 
-- **حفظ**: بعد تكوين جميع العمليات، اضغط "Save Mapping" لحفظ التكوين كملف JSON.
-- **تحميل**: في جلسة لاحقة، اضغط "Load Mapping" واختر ملف JSON السابق لاستعادة التكوين.
-- **ملاحظة**: إذا تغيرت أعمدة ملف الهدف، يتم محاذاة التكوين المحفوظ تلقائياً مع الأعمدة الموجودة.
+| Operation | Description |
+|-----------|-------------|
+| **exact** | Copies source column value as-is |
+| **constant** | Outputs the same fixed value for all rows |
+| **split** | Splits by delimiter and picks a part by index |
+| **concat** | Joins multiple source columns with a separator |
+| **condition** | If/elif/else rules with 10 comparison operators |
+| **lookup** | Maps old values to new values via a dictionary |
+| **regex** | Extracts text using a regular expression |
+| **formula** | Evaluates a Python expression (sandboxed) |
+| **date_format** | Parses and reformats date strings |
+| **case** | Converts to upper, lower, or title case |
+| **strip** | Removes leading/trailing whitespace |
+| **skip** | Leaves the column empty |
+| **count** | Counts non-empty cells across selected columns |
 
 ---
 
-## اختصارات لوحة المفاتيح
-
-- `Ctrl + O` — فتح ملف مصدر
-- `Ctrl + S` — حفظ تكوين الربط
-
----
-
-## هيكل الملفات
+## File Structure
 
 ```
 excelMapperTk/
-├── app.py                # نقطة الدخول — تشغيل التطبيق
-├── gui.py                # واجهة المستخدم (Tkinter)
-├── transformer.py        # عمليات التحويل الـ 13
-├── excel_io.py           # قراءة وكتابة ملفات Excel
-├── mapping_io.py         # حفظ وتحميل تكوين الربط
-├── state.py              # حالة التطبيق (AppState)
-├── requirements.txt      # الاعتماديات (openpyxl)
-└── README.md             # هذا الملف
+├── app.py                # Entry point
+├── gui.py                # User interface (Tkinter)
+├── transformer.py        # 13 transformation operations
+├── excel_io.py           # Excel read/write (openpyxl)
+├── mapping_io.py         # Save/load mapping JSON
+├── state.py              # Application state
+├── app_icon.ico          # Application icon
+├── requirements.txt      # Dependencies
+└── README.md             # This file
 ```
 
 ---
 
-## ملاحظات تقنية
+## Technical Notes
 
-- التطبيق لا يحتاج إلى صلاحيات مدير (Admin) للتشغيل.
-- جميع العمليات تجري محلياً على جهازك — لا اتصال بالإنترنت مطلوب.
-- ملفات Excel تُقرأ وتُكتب باستخدام مكتبة openpyxl؛ لا حاجة لتثبيت Microsoft Excel.
-- عملية `formula` تستخدم `eval()` بحماية (sandbox) مع دوال محدودة ومسموح بها فقط.
+- No admin privileges required
+- All processing runs locally — no internet connection needed
+- Uses `openpyxl` for Excel I/O; Microsoft Excel is not required
+- The `formula` operation uses a sandboxed `eval()` with a restricted set of allowed functions
+- Drag-and-drop support provided by `tkinterdnd2`

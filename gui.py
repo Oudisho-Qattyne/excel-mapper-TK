@@ -1,11 +1,23 @@
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 import copy
+import os
 
 from state import AppState
 from excel_io import read_excel, read_sheet, write_excel
 from transformer import apply_mapping, get_supported_operations
 from mapping_io import save_mapping, load_mapping
+from tkinterdnd2 import DND_FILES
+
+COLORS = {
+    "bg": "#f0f0f5", "fg": "#1a1a2e", "select_bg": "#d0d0ff",
+    "select_fg": "#1a1a2e", "border": "#c0c0d0", "button_bg": "#e0e0e8",
+    "button_fg": "#1a1a2e", "accent": "#6c5ce7", "input_bg": "#ffffff",
+    "input_fg": "#1a1a2e", "card_bg": "#ffffff", "card_fg": "#1a1a2e",
+    "tree_bg": "#ffffff", "tree_fg": "#1a1a2e", "header_bg": "#e8e8f0",
+    "header_fg": "#555570", "status_bg": "#4a6a8a", "status_fg": "white",
+    "disabled_fg": "#a0a0b0",
+}
 
 OP_EXAMPLES = {
     "exact": "Copies value as-is e.g. Name -> Name",
@@ -31,11 +43,89 @@ class ExcelMapperGUI:
         self.root.geometry("1200x800")
         self.state = AppState()
 
-        style = ttk.Style()
-        style.theme_use("clam")
+        self.style = ttk.Style()
+        self.style.theme_use("clam")
 
         self._build_ui()
+        self._apply_theme()
         self._bind_accelerators()
+
+    # ── Theme ──────────────────────────────────────────────────
+    def _apply_theme(self):
+        c = COLORS
+        self.style.configure(".", background=c["bg"], foreground=c["fg"],
+                             fieldbackground=c["input_bg"], font=("Segoe UI", 10))
+        self.style.configure("TFrame", background=c["bg"])
+        self.style.configure("TLabel", background=c["bg"], foreground=c["fg"])
+        self.style.configure("TButton", background=c["button_bg"], foreground=c["button_fg"],
+                             bordercolor=c["border"], focuscolor=c["accent"],
+                             padding=(12, 6))
+        self.style.map("TButton", background=[("active", c["select_bg"])],
+                       foreground=[("active", c["select_fg"])])
+        self.style.configure("TEntry", fieldbackground=c["input_bg"], foreground=c["input_fg"],
+                             bordercolor=c["border"])
+        self.style.map("TEntry", bordercolor=[("focus", c["accent"])])
+        self.style.configure("TCombobox", fieldbackground=c["input_bg"], foreground=c["input_fg"],
+                             bordercolor=c["border"], arrowcolor=c["fg"])
+        self.style.map("TCombobox", bordercolor=[("focus", c["accent"])])
+        self.style.configure("TLabelframe", background=c["card_bg"], foreground=c["card_fg"],
+                             bordercolor=c["border"])
+        self.style.configure("TLabelframe.Label", background=c["bg"], foreground=c["fg"])
+        self.style.configure("Treeview", background=c["tree_bg"], foreground=c["tree_fg"],
+                             fieldbackground=c["tree_bg"], bordercolor=c["border"])
+        self.style.map("Treeview", background=[("selected", c["select_bg"])],
+                       foreground=[("selected", c["select_fg"])])
+        self.style.configure("Treeview.Heading", background=c["header_bg"], foreground=c["header_fg"],
+                             bordercolor=c["border"])
+        self.style.configure("TNotebook", background=c["bg"], bordercolor=c["border"])
+        self.style.configure("TNotebook.Tab", background=c["button_bg"], foreground=c["fg"],
+                             bordercolor=c["border"], padding=(10, 4))
+        self.style.map("TNotebook.Tab", background=[("selected", c["card_bg"])],
+                       foreground=[("selected", c["fg"])])
+        self.style.configure("Horizontal.TScrollbar", background=c["button_bg"],
+                             bordercolor=c["border"], arrowcolor=c["fg"])
+        self.style.configure("Vertical.TScrollbar", background=c["button_bg"],
+                             bordercolor=c["border"], arrowcolor=c["fg"])
+
+        self.root.config(bg=c["bg"])
+        if hasattr(self, "status_bar"):
+            self.status_bar.config(bg=c["status_bg"], fg=c["status_fg"])
+
+        self._theme_tk_widgets(c)
+
+    def _theme_tk_widgets(self, c):
+        for w in self.root.winfo_children():
+            self._theme_walk(w, c)
+
+    def _theme_walk(self, w, c):
+        cls = w.winfo_class()
+        if cls == "Label":
+            if hasattr(self, "status_bar") and w is self.status_bar:
+                return
+            current_fg = w.cget("fg")
+            if not current_fg.startswith("#"):
+                w.config(bg=c["bg"], fg=c["fg"])
+            else:
+                w.config(bg=c["bg"])
+        elif cls == "Listbox":
+            w.config(bg=c["input_bg"], fg=c["input_fg"],
+                     selectbackground=c["select_bg"], selectforeground=c["select_fg"])
+        elif cls == "Text":
+            w.config(bg=c["input_bg"], fg=c["input_fg"],
+                     insertbackground=c["fg"], selectbackground=c["select_bg"],
+                     highlightbackground=c["border"])
+        elif cls == "Canvas":
+            w.config(bg=c["bg"], highlightbackground=c["border"])
+        elif cls in ("Button", "Checkbutton", "Radiobutton"):
+            try:
+                w.config(bg=c["button_bg"], fg=c["button_fg"],
+                         activebackground=c["select_bg"], activeforeground=c["select_fg"])
+            except tk.TclError:
+                pass
+        elif cls == "Menu":
+            w.config(bg=c["bg"], fg=c["fg"])
+        for child in w.winfo_children():
+            self._theme_walk(child, c)
 
     # ── Status Bar ──────────────────────────────────────────────
     def _set_status(self, msg, is_error=False):
@@ -55,11 +145,13 @@ class ExcelMapperGUI:
         self._build_tab_load()
         self._build_tab_map()
         self._build_tab_export()
+        self._build_tab_stats()
+        self._setup_drag_drop()
 
         self.status_var = tk.StringVar(value="Ready")
         self.status_bar = tk.Label(
             self.root, textvariable=self.status_var,
-            relief="sunken", anchor="w", bg="#2c3e50", fg="white",
+            relief="sunken", anchor="w", bg="#4a6a8a", fg="white",
             font=("Segoe UI", 9),
         )
         self.status_bar.pack(fill="x", side="bottom")
@@ -123,13 +215,7 @@ class ExcelMapperGUI:
         sheet_cb.bind("<<ComboboxSelected>>",
                       lambda e, s=is_source: self._on_sheet_change(s))
 
-    def _browse_file(self, is_source):
-        path = filedialog.askopenfilename(
-            title=f"Select {'Source' if is_source else 'Target'} Excel File",
-            filetypes=[("Excel files", "*.xlsx"), ("All files", "*.*")]
-        )
-        if not path:
-            return
+    def _load_file(self, path, is_source):
         try:
             rows, columns, sheet_names = read_excel(path)
             if is_source:
@@ -150,8 +236,32 @@ class ExcelMapperGUI:
                 self._populate_sheet_cb(self.tgt_sheet_cb, sheet_names, is_source)
             self._set_status(f"Loaded {'source' if is_source else 'target'}: {path}")
             self._rebuild_mapping_cards()
+            self._refresh_stats()
         except Exception as e:
             self._set_status(f"Error loading file: {e}", is_error=True)
+
+    def _browse_file(self, is_source):
+        path = filedialog.askopenfilename(
+            title=f"Select {'Source' if is_source else 'Target'} Excel File",
+            filetypes=[("Excel files", "*.xlsx"), ("All files", "*.*")]
+        )
+        if path:
+            self._load_file(path, is_source)
+
+    def _setup_drag_drop(self):
+        EXTENSIONS = (".xlsx", ".xls", ".csv")
+        if hasattr(self.root, "drop_target_register"):
+            self.root.drop_target_register(DND_FILES)
+
+            def _on_drop(event):
+                data = event.data.strip()
+                for path in self.root.tk.splitlist(data):
+                    p = path.strip("{}").strip()
+                    if p.lower().endswith(EXTENSIONS):
+                        self._load_file(p, is_source=True)
+                        break
+
+            self.root.dnd_bind("<<Drop>>", _on_drop)
 
     def _populate_sheet_cb(self, cb, sheet_names, is_source):
         if len(sheet_names) > 1:
@@ -226,6 +336,16 @@ class ExcelMapperGUI:
         canvas.pack(side="left", fill="both", expand=True)
         vsb.pack(side="right", fill="y")
 
+        # Search bar
+        search_frame = ttk.Frame(self.tab_map)
+        search_frame.pack(fill="x", padx=10, pady=(5, 0))
+        ttk.Label(search_frame, text="Search:", font=("Segoe UI", 9)).pack(side="left", padx=(0, 5))
+        self.search_var = tk.StringVar()
+        self.search_var.trace_add("write", lambda *a: self._filter_mapping_cards())
+        search_entry = ttk.Entry(search_frame, textvariable=self.search_var, width=30)
+        search_entry.pack(side="left")
+        ttk.Label(search_frame, text="Type to filter target columns", foreground="#888").pack(side="left", padx=(8, 0))
+
         btn_frame = ttk.Frame(self.tab_map)
         btn_frame.pack(fill="x", padx=5, pady=5)
         ttk.Button(btn_frame, text="Save Mapping", command=self._save_mapping).pack(side="left", padx=(0, 5))
@@ -255,10 +375,24 @@ class ExcelMapperGUI:
                 })
 
         self._mapping_widgets = {}
+        self._card_frames = []
         for i, m in enumerate(self.state.mappings):
             card = ttk.LabelFrame(self.map_inner, text=m["target_col"], padding=8)
             card.pack(fill="x", padx=10, pady=4)
+            self._card_frames.append(card)
             self._build_mapping_card(card, i, m, source_cols, ops)
+        self._filter_mapping_cards()
+
+    def _filter_mapping_cards(self):
+        if not hasattr(self, '_card_frames'):
+            return
+        query = self.search_var.get().strip().lower()
+        for i, card in enumerate(self._card_frames):
+            target = self.state.mappings[i]["target_col"] if i < len(self.state.mappings) else ""
+            if not query or query in target.lower():
+                card.pack(fill="x", padx=10, pady=4)
+            else:
+                card.pack_forget()
 
     def _build_mapping_card(self, parent, idx, mapping, source_cols, ops):
         top_frame = ttk.Frame(parent)
@@ -841,3 +975,95 @@ class ExcelMapperGUI:
             self._set_status(f"Exported: {path}")
         except Exception as e:
             self._set_status(f"Error exporting: {e}", is_error=True)
+
+    # ═══════════════════════ TAB 4: STATISTICS ═════════════════
+    def _build_tab_stats(self):
+        self.tab_stats = ttk.Frame(self.notebook)
+        self.notebook.add(self.tab_stats, text="Statistics")
+        self.notebook.bind("<<NotebookTabChanged>>", self._on_tab_changed)
+
+        paned = ttk.PanedWindow(self.tab_stats, orient="vertical")
+        paned.pack(fill="both", expand=True, padx=5, pady=5)
+
+        self._build_stats_panel(paned, "Source", "src")
+        self._build_stats_panel(paned, "Target", "tgt")
+
+    def _build_stats_panel(self, parent, label, prefix):
+        frame = ttk.LabelFrame(parent, text=label, padding=5)
+        parent.add(frame, weight=1)
+
+        info_frame = ttk.Frame(frame)
+        info_frame.pack(fill="x", pady=(0, 5))
+        setattr(self, f"{prefix}_stats_info", tk.StringVar(value="Rows: 0  |  Columns: 0"))
+        ttk.Label(info_frame, textvariable=getattr(self, f"{prefix}_stats_info"),
+                  font=("Segoe UI", 10, "bold")).pack(side="left")
+
+        tree_frame = ttk.Frame(frame)
+        tree_frame.pack(fill="both", expand=True)
+
+        vsb = ttk.Scrollbar(tree_frame, orient="vertical")
+        hsb = ttk.Scrollbar(tree_frame, orient="horizontal")
+        cols = ("Column", "Non-Empty", "Fill %", "Unique", "Type")
+        tree = ttk.Treeview(tree_frame, columns=cols, show="headings",
+                            yscrollcommand=vsb.set, xscrollcommand=hsb.set)
+        for c in cols:
+            tree.heading(c, text=c)
+            tree.column(c, width=100 if c != "Column" else 180)
+        vsb.config(command=tree.yview)
+        hsb.config(command=tree.xview)
+        vsb.pack(side="right", fill="y")
+        hsb.pack(side="bottom", fill="x")
+        tree.pack(fill="both", expand=True)
+        setattr(self, f"{prefix}_stats_tree", tree)
+
+    def _on_tab_changed(self, event):
+        if event.widget.index("current") == 3:
+            self._refresh_stats()
+
+    def _refresh_stats(self):
+        for prefix in ("src", "tgt"):
+            rows_key = f"{prefix}_stats_tree"
+            tree = getattr(self, rows_key, None)
+            if tree is None:
+                continue
+            for item in tree.get_children():
+                tree.delete(item)
+
+        for prefix, label, columns_key, rows_key in [
+            ("src", "Source", "source_columns", "source_rows"),
+            ("tgt", "Target", "target_columns", "target_rows"),
+        ]:
+            tree = getattr(self, f"{prefix}_stats_tree", None)
+            if not tree:
+                continue
+            columns = getattr(self.state, columns_key, [])
+            rows = getattr(self.state, rows_key, [])
+            info = getattr(self, f"{prefix}_stats_info")
+            info.set(f"Rows: {len(rows)}  |  Columns: {len(columns)}")
+
+            for col in columns:
+                non_empty = 0
+                numeric = 0
+                unique = set()
+                for row in rows:
+                    v = row.get(col, "")
+                    if v != "" and v is not None:
+                        non_empty += 1
+                        unique.add(str(v))
+                        try:
+                            float(v)
+                            numeric += 1
+                        except (ValueError, TypeError):
+                            pass
+                total = len(rows) or 1
+                fill_pct = f"{non_empty * 100 // total}%"
+
+                if numeric == non_empty and non_empty > 0:
+                    dtype = "Numeric"
+                elif non_empty > 0:
+                    dtype = "Text"
+                else:
+                    dtype = "Empty"
+
+                tree.insert("", "end", values=(col, str(non_empty), fill_pct,
+                                                str(len(unique)), dtype))

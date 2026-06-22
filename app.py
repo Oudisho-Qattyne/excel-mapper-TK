@@ -1,9 +1,9 @@
-import tkinter as tk
+from tkinterdnd2 import TkinterDnD
 from gui import ExcelMapperGUI
 
 
 def main():
-    root = tk.Tk()
+    root = TkinterDnD.Tk()
     app = ExcelMapperGUI(root)
     root.mainloop()
 
