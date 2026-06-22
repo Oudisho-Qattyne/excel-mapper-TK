@@ -7,6 +7,22 @@ from excel_io import read_excel, read_sheet, write_excel
 from transformer import apply_mapping, get_supported_operations
 from mapping_io import save_mapping, load_mapping
 
+OP_EXAMPLES = {
+    "exact": "Copies value as-is e.g. Name -> Name",
+    "constant": "Always outputs a fixed value e.g. \"Active\"",
+    "split": "Splits by delimiter e.g. \"a,b\" -> \"a\"",
+    "concat": "Joins columns e.g. First + Last -> Full",
+    "condition": "If/elif rules e.g. Salary > 90k -> Senior",
+    "lookup": "Maps old->new e.g. Y -> Yes, N -> No",
+    "regex": "Extracts via regex e.g. name@domain -> name",
+    "formula": "Python expression e.g. int(Salary) * 1.1",
+    "date_format": "Reformats date e.g. 2023-01-15 -> 15/01/2023",
+    "case": "Changes case: upper / lower / title",
+    "strip": "Removes leading/trailing whitespace",
+    "skip": "Leaves column empty (skip this field)",
+    "count": "Counts non-empty cells across columns",
+}
+
 
 class ExcelMapperGUI:
     def __init__(self, root):
@@ -195,7 +211,17 @@ class ExcelMapperGUI:
         vsb = ttk.Scrollbar(outer_frame, orient="vertical", command=canvas.yview)
         self.map_inner = ttk.Frame(canvas)
         self.map_inner.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
-        canvas.create_window((0, 0), window=self.map_inner, anchor="nw")
+        canvas.create_window((0, 0), window=self.map_inner, anchor="nw", tags="inner")
+
+        def _on_canvas_resize(e):
+            canvas.itemconfig("inner", width=e.width)
+        canvas.bind("<Configure>", _on_canvas_resize)
+
+        def _on_mousewheel(e):
+            canvas.yview_scroll(int(-1 * (e.delta / 120)), "units")
+        canvas.bind("<Enter>", lambda e: canvas.bind_all("<MouseWheel>", _on_mousewheel))
+        canvas.bind("<Leave>", lambda e: canvas.unbind_all("<MouseWheel>"))
+
         canvas.configure(yscrollcommand=vsb.set)
         canvas.pack(side="left", fill="both", expand=True)
         vsb.pack(side="right", fill="y")
@@ -244,6 +270,10 @@ class ExcelMapperGUI:
         op_cb = ttk.Combobox(top_frame, textvariable=op_var, values=ops, state="readonly", width=14)
         op_cb.pack(side="left", padx=(5, 10))
 
+        example_lbl = tk.Label(top_frame, text=OP_EXAMPLES.get(mapping["op"], ""),
+                               fg="#6a6a88", anchor="w", font=("Segoe UI", 8))
+        example_lbl.pack(side="left", fill="x", padx=(0, 5))
+
         param_frame = ttk.Frame(parent)
         param_frame.pack(fill="x", pady=(5, 0))
 
@@ -252,12 +282,14 @@ class ExcelMapperGUI:
 
         self._mapping_widgets[idx] = {
             "op_var": op_var, "param_frame": param_frame, "preview_frame": preview_frame,
+            "example_lbl": example_lbl,
         }
 
         def on_op_change(*args):
             new_op = op_var.get()
             mapping["op"] = new_op
             mapping["params"] = self._default_params(new_op, source_cols)
+            example_lbl.config(text=OP_EXAMPLES.get(new_op, ""))
             self._render_params(param_frame, idx, mapping, source_cols)
             self._update_preview(preview_frame, idx, mapping)
 
