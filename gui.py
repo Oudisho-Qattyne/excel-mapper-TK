@@ -42,6 +42,7 @@ class ExcelMapperGUI:
         self.root.title("Excel Field Mapper & Transformer")
         self.root.geometry("1200x800")
         self.state = AppState()
+        self._clipboard_mapping = None
 
         self.style = ttk.Style()
         self.style.theme_use("clam")
@@ -407,6 +408,13 @@ class ExcelMapperGUI:
         example_lbl = tk.Label(top_frame, text=OP_EXAMPLES.get(mapping["op"], ""),
                                fg="#6a6a88", anchor="w", font=("Segoe UI", 8))
         example_lbl.pack(side="left", fill="x", padx=(0, 5))
+
+        copy_btn = ttk.Button(top_frame, text="Copy", width=5,
+                              command=lambda i=idx: self._copy_mapping(i))
+        copy_btn.pack(side="right", padx=(2, 0))
+        paste_btn = ttk.Button(top_frame, text="Paste", width=5,
+                               command=lambda i=idx: self._paste_mapping(i))
+        paste_btn.pack(side="right", padx=(2, 0))
 
         param_frame = ttk.Frame(parent)
         param_frame.pack(fill="x", pady=(5, 0))
@@ -833,6 +841,26 @@ class ExcelMapperGUI:
             lbl = tk.Label(parent, text=text, fg=color, anchor="w",
                            font=("Segoe UI", 9))
             lbl.pack(fill="x")
+
+    # ── Copy / Paste Mapping ──────────────────────────────────
+    def _copy_mapping(self, idx):
+        m = self.state.mappings[idx]
+        self._clipboard_mapping = copy.deepcopy(m)
+
+    def _paste_mapping(self, idx):
+        if self._clipboard_mapping is None:
+            self._set_status("Nothing copied.", is_error=True)
+            return
+        m = self.state.mappings[idx]
+        m["op"] = self._clipboard_mapping["op"]
+        m["params"] = copy.deepcopy(self._clipboard_mapping["params"])
+        w = self._mapping_widgets.get(idx)
+        if w:
+            w["op_var"].set(m["op"])
+            w["example_lbl"].config(text=OP_EXAMPLES.get(m["op"], ""))
+            self._render_params(w["param_frame"], idx, m, self.state.source_columns)
+            self._update_preview(w["preview_frame"], idx, m)
+        self._set_status(f"Pasted mapping to column '{m['target_col']}'")
 
     # ── Save / Load Mapping ────────────────────────────────────
     def _save_mapping(self):
